@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PayPal Trustpilot Recovery Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f6f8; color: #1a1a2e; font-size: 14px; }
+
+/* Header */
+.header { background: #003087; color: white; padding: 14px 24px; display: flex; align-items: center; gap: 14px; }
+.header h1 { font-size: 17px; font-weight: 700; }
+.header .sub { font-size: 11px; opacity: 0.65; margin-top: 2px; }
+.pp-logo { width: 30px; height: 30px; background: #009cde; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: white; flex-shrink: 0; }
+
+/* Loading / error states */
+#loading-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; color: #888; }
+.spinner { width: 36px; height: 36px; border: 3px solid #e0e0e0; border-top-color: #003087; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#error-screen { display: none; padding: 40px 24px; text-align: center; color: #e74c3c; }
+#error-screen pre { background: #fef; border: 1px solid #fcc; border-radius: 8px; padding: 12px; font-size: 12px; text-align: left; margin-top: 12px; max-width: 600px; margin-inline: auto; }
+
+/* Tabs */
+.tabs { background: white; border-bottom: 2px solid #e0e0e0; display: flex; padding: 0 20px; }
+.tab-btn { padding: 11px 18px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: #777; border-bottom: 3px solid transparent; margin-bottom: -2px; display: flex; align-items: center; gap: 7px; transition: color 0.15s; }
+.tab-btn.active { color: #003087; border-bottom-color: #003087; }
+.tab-btn:hover { color: #003087; }
+.score-badge { font-size: 11px; background: #f0f0f0; color: #666; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
+.tab-btn.active .score-badge { background: #dce8f8; color: #003087; }
+
+/* Content */
+.content { padding: 20px 24px; max-width: 1060px; }
+.locale-pane { display: none; }
+.locale-pane.active { display: block; }
+
+/* Locale header */
+.locale-header { margin-bottom: 20px; }
+.locale-title { font-size: 24px; font-weight: 800; letter-spacing: -0.3px; }
+.locale-title .curr { color: #003087; }
+.locale-title .arr { color: #009cde; margin: 0 8px; }
+.locale-title .tgt { color: #bbb; }
+.locale-sub { font-size: 12px; color: #999; margin-top: 3px; }
+.de-ref { display: inline-flex; align-items: center; gap: 6px; background: #e8f0fe; color: #003087; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; margin-left: 10px; }
+
+/* Metric cards */
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+@media (max-width: 700px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+.mc { background: white; border-radius: 10px; padding: 14px 18px; border: 1px solid #e8e8e8; }
+.mc-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #aaa; margin-bottom: 7px; }
+.mc-val { font-size: 28px; font-weight: 800; line-height: 1; }
+.mc-val.blue { color: #003087; }
+.mc-val.red { color: #e74c3c; }
+.mc-val.green { color: #00a651; }
+.mc-val.dk { color: #1a1a2e; }
+.mc-sub { font-size: 11px; color: #bbb; margin-top: 5px; }
+
+/* Chart */
+.chart-card { background: white; border-radius: 10px; padding: 18px 20px; border: 1px solid #e8e8e8; margin-bottom: 18px; }
+.card-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #aaa; margin-bottom: 14px; }
+.chart-wrap { position: relative; height: 270px; }
+
+/* Progress to goal */
+.progress-card { background: white; border-radius: 10px; padding: 14px 20px; border: 1px solid #e8e8e8; margin-bottom: 18px; }
+.prog-bar-track { height: 10px; background: #f0f0f0; border-radius: 5px; overflow: hidden; margin: 10px 0 6px; }
+.prog-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #003087, #009cde); transition: width 0.6s ease; }
+.prog-labels { display: flex; justify-content: space-between; font-size: 10px; color: #bbb; font-weight: 700; }
+
+/* Auto-fetch note */
+.auto-note { background: #f0f7ff; border: 1px solid #cce0ff; border-radius: 8px; padding: 8px 14px; font-size: 11px; color: #004aad; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+.manual-note { background: #fff8e6; border: 1px solid #ffe0a0; border-radius: 8px; padding: 8px 14px; font-size: 11px; color: #7a5200; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+
+/* History table */
+.data-card { background: white; border-radius: 10px; padding: 18px 20px; border: 1px solid #e8e8e8; }
+.ht { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ht th { text-align: left; padding: 7px 10px; background: #f8f9fa; border-bottom: 2px solid #e8e8e8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #aaa; font-weight: 700; }
+.ht td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
+.ht tr:last-child td { border-bottom: none; }
+.ht tr:hover td { background: #fafbff; }
+.delta-pos { color: #00a651; font-weight: 700; }
+.delta-neg { color: #e74c3c; font-weight: 700; }
+.delta-neu { color: #aaa; }
+.no-data { color: #ccc; font-size: 12px; font-style: italic; padding: 12px 10px; }
+
+/* Footer */
+.foot { font-size: 11px; color: #ccc; text-align: center; padding: 12px 24px 24px; }
+.reached { display: inline-flex; align-items: center; background: #e8f5e9; color: #2e7d32; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="pp-logo">TP</div>
+  <div>
+    <h1>PayPal Trustpilot Recovery Tracker</h1>
+    <div class="sub" id="header-sub">FR · ES · UK · IT &nbsp;·&nbsp; Loading… &nbsp;·&nbsp; 🇩🇪 DE benchmark: 1.3 → 4.1 in ~120 days</div>
+  </div>
+</div>
+
+<!-- Loading state -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <div>Fetching latest data…</div>
+</div>
+
+<!-- Error state -->
+<div id="error-screen">
+  <h2>⚠️ Could not load data.json</h2>
+  <p style="margin-top:8px;color:#666;font-size:13px;">Make sure the file is in the same directory as index.html (or hosted on GitHub Pages).</p>
+  <pre id="error-detail"></pre>
+</div>
+
+<!-- Main UI (hidden until data loads) -->
+<div id="main-ui" style="display:none">
+
+<div class="tabs" id="tabs-container"></div>
+
+<div class="content" id="panes-container"></div>
+
+</div><!-- /main-ui -->
+
+<div class="foot" id="footer" style="display:none">
+  Auto-updated daily at 08:00 UTC via GitHub Actions &nbsp;·&nbsp; <a href="https://www.trustpilot.com" target="_blank" style="color:#aaa">Trustpilot</a>
+</div>
+
+<script>
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtDate(d) {
+  const [y, m, day] = d.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return parseInt(day) + ' ' + months[parseInt(m) - 1] + ' \'' + y.slice(2);
+}
+
+function fmtScore(s) {
+  return s != null ? s.toFixed(1) : '—';
+}
+
+function scoreColor(s) {
+  if (s == null) return '#aaa';
+  if (s >= 4.0) return '#00a651';
+  if (s >= 3.0) return '#f0a500';
+  return '#e74c3c';
+}
+
+// ── Chart plugin: dashed target line at 4.0 ──────────────────────────────────
+const targetPlugin = {
+  id: 'targetLine',
+  afterDraw(chart) {
+    const scoreAxis = chart.scales['score'];
+    if (!scoreAxis) return;
+    const y = scoreAxis.getPixelForValue(4.0);
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = '#00a651';
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(chart.chartArea.left, y);
+    ctx.lineTo(chart.chartArea.right, y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#00a651';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('Target 4.0', chart.chartArea.right - 62, y - 5);
+    ctx.restore();
+  }
+};
+Chart.register(targetPlugin);
+
+// ── Build a locale pane ───────────────────────────────────────────────────────
+const charts = {};
+
+function buildPane(loc, info) {
+  const pts = info.data || [];
+  const latest = pts.length ? pts[pts.length - 1] : null;
+  const latestScore = latest ? latest.score : info.baseline;
+  const gap = latestScore != null ? (4.0 - latestScore).toFixed(1) : '—';
+  const progress = latestScore != null ? Math.min(100, Math.round(((latestScore - info.baseline) / (4.0 - info.baseline)) * 100)) : 0;
+  const daysRunning = pts.length >= 2
+    ? Math.round((new Date(pts[pts.length - 1].date) - new Date(pts[0].date)) / 86400000)
+    : 0;
+  const latestRevDay = pts.slice().reverse().find(p => p.reviews_per_day != null);
+  const isIT = loc === 'it';
+  const atTarget = latestScore != null && latestScore >= 4.0;
+
+  const pane = document.createElement('div');
+  pane.className = 'locale-pane';
+  pane.id = 'pane-' + loc;
+
+  // Note banner
+  const noteBanner = isIT
+    ? `<div class="manual-note">⚠️ Italy's Trustpilot page is JS-rendered. The daily script will attempt to fetch it, but may need a manual update if the score shows as stale. Edit <code>data.json</code> directly to add new IT readings.</div>`
+    : `<div class="auto-note">🤖 Score auto-fetched daily at 08:00 UTC via GitHub Actions.</div>`;
+
+  // History rows
+  const histRows = pts.slice().reverse().map((pt, i, arr) => {
+    const prev = arr[i + 1];
+    let delta = '';
+    if (prev && pt.score != null && prev.score != null) {
+      const d = (pt.score - prev.score).toFixed(1);
+      if (d > 0) delta = `<span class="delta-pos">+${d}</span>`;
+      else if (d < 0) delta = `<span class="delta-neg">${d}</span>`;
+      else delta = `<span class="delta-neu">0.0</span>`;
+    }
+    return `<tr>
+      <td>${fmtDate(pt.date)}</td>
+      <td><strong>${fmtScore(pt.score)}</strong></td>
+      <td>${delta || '<span class="delta-neu">—</span>'}</td>
+      <td>${pt.reviews != null ? pt.reviews.toLocaleString() : '—'}</td>
+      <td>${pt.reviews_per_day != null ? '+' + pt.reviews_per_day + '/day' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  pane.innerHTML = `
+    <div class="locale-header">
+      <div class="locale-title">
+        ${info.flag} PayPal ${info.name} TrustScore
+        <span class="curr" id="title-${loc}-score">${fmtScore(latestScore)}</span>
+        <span class="arr">→</span>
+        <span class="tgt">4.x</span>
+        ${atTarget ? '<span class="reached">🎉 Target reached!</span>' : ''}
+        ${loc === 'fr' ? '<span class="de-ref">🇩🇪 DE now 4.1 ↑</span>' : ''}
+      </div>
+      <div class="locale-sub">
+        Source: <a href="${info.url}" target="_blank" style="color:#009cde">${info.url}</a>
+        &nbsp;·&nbsp; Baseline ${info.baseline} &nbsp;·&nbsp; Tracking since ${pts.length ? fmtDate(pts[0].date) : 'Day 1'}
+      </div>
+    </div>
+
+    ${noteBanner}
+
+    <div class="metrics">
+      <div class="mc">
+        <div class="mc-lbl">Current Score</div>
+        <div class="mc-val blue" id="mc-score-${loc}">${fmtScore(latestScore)}</div>
+        <div class="mc-sub">out of 5.0</div>
+      </div>
+      <div class="mc">
+        <div class="mc-lbl">Gap to 4.0</div>
+        <div class="mc-val ${atTarget ? 'green' : 'red'}" id="mc-gap-${loc}">${atTarget ? '✓' : (gap !== '—' ? '−' + gap : '—')}</div>
+        <div class="mc-sub">${atTarget ? 'Target achieved!' : 'points remaining'}</div>
+      </div>
+      <div class="mc">
+        <div class="mc-lbl">Days Running</div>
+        <div class="mc-val dk" id="mc-days-${loc}">${daysRunning || '0'}</div>
+        <div class="mc-sub">since tracking began</div>
+      </div>
+      <div class="mc">
+        <div class="mc-lbl">Reviews / Day</div>
+        <div class="mc-val dk" id="mc-revday-${loc}">${latestRevDay ? '+' + latestRevDay.reviews_per_day : '—'}</div>
+        <div class="mc-sub">latest period</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="card-title">Score Trend & Daily Review Volume</div>
+      <div class="chart-wrap"><canvas id="chart-${loc}"></canvas></div>
+    </div>
+
+    <div class="progress-card">
+      <div class="card-title">Progress to 4.0 Target</div>
+      <div class="prog-bar-track"><div class="prog-bar-fill" id="prog-fill-${loc}" style="width:${progress}%"></div></div>
+      <div class="prog-labels">
+        <span>${info.baseline} (baseline)</span>
+        <span id="prog-pct-${loc}">${progress}% there</span>
+        <span style="color:#00a651">4.0 target</span>
+      </div>
+    </div>
+
+    <div class="data-card">
+      <div class="card-title">Score History</div>
+      ${pts.length === 0
+        ? '<div class="no-data">No data points yet.</div>'
+        : `<table class="ht">
+            <thead><tr>
+              <th>Date</th><th>Score</th><th>Δ Change</th><th>Total Reviews</th><th>Reviews/Day</th>
+            </tr></thead>
+            <tbody>${histRows}</tbody>
+          </table>`}
+    </div>
+  `;
+
+  return pane;
+}
+
+// ── Build chart for a locale ──────────────────────────────────────────────────
+function buildChart(loc, info) {
+  const pts = info.data || [];
+  if (pts.length === 0) return;
+
+  const labels = pts.map(p => fmtDate(p.date));
+  const scores = pts.map(p => p.score);
+  const revPerDay = pts.map(p => p.reviews_per_day);
+
+  const ctx = document.getElementById('chart-' + loc);
+  if (!ctx) return;
+
+  if (charts[loc]) charts[loc].destroy();
+
+  charts[loc] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Reviews/Day',
+          data: revPerDay,
+          backgroundColor: 'rgba(0,156,222,0.18)',
+          borderColor: 'rgba(0,156,222,0.5)',
+          borderWidth: 1,
+          borderRadius: 4,
+          yAxisID: 'revday',
+          order: 2,
+        },
+        {
+          label: 'TrustScore',
+          data: scores,
+          type: 'line',
+          yAxisID: 'score',
+          borderColor: '#003087',
+          backgroundColor: 'rgba(0,48,135,0.08)',
+          borderWidth: 2.5,
+          pointRadius: 5,
+          pointBackgroundColor: scores.map(s => scoreColor(s)),
+          pointBorderColor: '#003087',
+          pointBorderWidth: 1.5,
+          tension: 0.35,
+          fill: true,
+          order: 1,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        revday: {
+          type: 'linear',
+          position: 'left',
+          title: { display: true, text: 'Reviews/Day', font: { size: 10 }, color: '#009cde' },
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          ticks: { font: { size: 10 } },
+          beginAtZero: true,
+        },
+        score: {
+          type: 'linear',
+          position: 'right',
+          min: 0,
+          max: 5,
+          title: { display: true, text: 'TrustScore', font: { size: 10 }, color: '#003087' },
+          grid: { drawOnChartArea: false },
+          ticks: { font: { size: 10 }, stepSize: 1 },
+        }
+      },
+      plugins: {
+        legend: { labels: { font: { size: 11 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.dataset.label === 'TrustScore') return ` Score: ${ctx.parsed.y?.toFixed(1) ?? '—'}`;
+              if (ctx.parsed.y != null) return ` Reviews/Day: +${ctx.parsed.y}`;
+              return ` Reviews/Day: —`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const resp = await fetch('./data.json?t=' + Date.now());
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+    const json = await resp.json();
+
+    // Hide loading, show UI
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('main-ui').style.display = 'block';
+    document.getElementById('footer').style.display = 'block';
+
+    // Update header
+    if (json.last_updated) {
+      const d = new Date(json.last_updated);
+      const stamp = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' UTC';
+      document.getElementById('header-sub').textContent =
+        `FR · ES · UK · IT  ·  Last fetched ${stamp}  ·  🇩🇪 DE benchmark: 1.3 → 4.1 in ~120 days`;
+    }
+
+    const tabsEl = document.getElementById('tabs-container');
+    const panesEl = document.getElementById('panes-container');
+    const locales = json.locales || {};
+    let first = true;
+
+    for (const [loc, info] of Object.entries(locales)) {
+      const pts = info.data || [];
+      const latestScore = pts.length ? pts[pts.length - 1].score : info.baseline;
+
+      // Tab button
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn' + (first ? ' active' : '');
+      btn.innerHTML = `${info.flag} ${info.name} <span class="score-badge" id="tsb-${loc}">${fmtScore(latestScore)}</span>`;
+      btn.onclick = () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.locale-pane').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('pane-' + loc).classList.add('active');
+      };
+      tabsEl.appendChild(btn);
+
+      // Pane
+      const pane = buildPane(loc, info);
+      if (first) pane.classList.add('active');
+      panesEl.appendChild(pane);
+
+      // Chart
+      buildChart(loc, info);
+
+      first = false;
+    }
+
+  } catch (err) {
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('error-screen').style.display = 'block';
+    document.getElementById('error-detail').textContent = err.toString();
+    console.error(err);
+  }
+}
+
+init();
+</script>
+</body>
+</html>

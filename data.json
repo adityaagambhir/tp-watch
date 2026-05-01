@@ -1,0 +1,79 @@
+{
+  "last_updated": "2026-04-30T23:51:03.662940+00:00",
+  "locales": {
+    "fr": {
+      "name": "France",
+      "flag": "🇫🇷",
+      "url": "https://www.trustpilot.com/review/www.paypal.fr",
+      "baseline": 1.5,
+      "data": [
+        {
+          "date": "2026-04-28",
+          "score": 1.5,
+          "reviews": null,
+          "reviews_per_day": null
+        },
+        {
+          "date": "2026-04-30",
+          "score": 1.6,
+          "reviews": 6472,
+          "reviews_per_day": 91
+        }
+      ]
+    },
+    "es": {
+      "name": "Spain",
+      "flag": "🇪🇸",
+      "url": "https://www.trustpilot.com/review/www.paypal.es",
+      "baseline": 1.5,
+      "data": [
+        {
+          "date": "2026-04-28",
+          "score": 1.5,
+          "reviews": null,
+          "reviews_per_day": null
+        },
+        {
+          "date": "2026-04-30",
+          "score": 1.5,
+          "reviews": null,
+          "reviews_per_day": null
+        }
+      ]
+    },
+    "uk": {
+      "name": "United Kingdom",
+      "flag": "🇬🇧",
+      "url": "https://www.trustpilot.com/review/www.paypal.com/gb",
+      "baseline": 1.2,
+      "data": [
+        {
+          "date": "2026-04-28",
+          "score": 1.2,
+          "reviews": null,
+          "reviews_per_day": null
+        },
+        {
+          "date": "2026-04-30",
+          "score": 1.2,
+          "reviews": null,
+          "reviews_per_day": null
+        }
+      ]
+    },
+    "it": {
+      "name": "Italy",
+      "flag": "🇮🇹",
+      "url": "https://www.trustpilot.com/review/paypal.com/it",
+      "baseline": 3.7,
+      "data": [
+        {
+          "date": "2026-04-30",
+          "score": 3.7,
+          "reviews": 13,
+          "reviews_per_day": null
+        }
+      ]
+    }
+  }
+}
