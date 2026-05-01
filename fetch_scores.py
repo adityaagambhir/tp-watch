@@ -9,7 +9,7 @@ import os
 import sys
 from datetime import date, datetime, timezone
 
-import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 
 # ── Locale config ─────────────────────────────────────────────────────────────
@@ -42,20 +42,9 @@ LOCALES = {
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "data.json")
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/122.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-    "Accept-Encoding": "gzip, deflate, br",
-    "DNT": "1",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
-    "Cache-Control": "max-age=0",
-}
+scraper = cloudscraper.create_scraper(
+    browser={"browser": "chrome", "platform": "windows", "mobile": False}
+)
 
 
 # ── Scraper ───────────────────────────────────────────────────────────────────
@@ -65,7 +54,7 @@ def fetch_trustpilot(url: str) -> tuple[float | None, int | None]:
     Returns (score, review_count) or (None, None) on failure.
     """
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=20)
+        resp = scraper.get(url, timeout=20)
         resp.raise_for_status()
     except Exception as e:
         print(f"    ❌ HTTP error: {e}")
