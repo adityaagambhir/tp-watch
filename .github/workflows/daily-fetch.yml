@@ -1,0 +1,39 @@
+name: Daily Trustpilot Score Fetch
+
+on:
+  schedule:
+    # 08:00 UTC = 09:00 CET (winter) / 10:00 CEST (summer)
+    - cron: "0 8 * * *"
+  workflow_dispatch: # allow manual "Run workflow" trigger in GitHub UI
+
+permissions:
+  contents: write # needed to commit data.json back to the repo
+
+jobs:
+  fetch-scores:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch Trustpilot scores
+        run: python fetch_scores.py
+
+      - name: Commit updated data.json
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "data.json"
+          message: "data: Trustpilot scores ${{ github.run_id }} [skip ci]"
+          default_author: github_actions
+          push: true
